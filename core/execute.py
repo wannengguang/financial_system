@@ -9,7 +9,7 @@ from core.project_statistics import project_stats
 from core.monthly_statistics import monthly_stats
 from core.paid_receipts import load_paid_data,save_paid_data,add_paid_form,edit_paid_form
 from core.unpaid_receipts import load_unpaid_data,save_unpaid_data,add_unpaid_form,edit_unpaid_form
-import xlsxwriter
+from core.permission import login_page
 
 def export_data(df):
     """添加数据导出功能"""
@@ -451,7 +451,9 @@ def show_account(df):
                 st.error(f"导出失败: {str(e)}")
 
 
-def main():
+def run_main():
+    # 鉴权
+    st.write(f"欢迎，{st.session_state['username']}（{st.session_state['role']}）")
 
     # 加载数据
     df = load_paid_data()
@@ -512,3 +514,13 @@ def main():
             col2.metric("总收入", f"¥{latest['收入金额']:,.2f}")
             col3.metric("净利润", f"¥{latest['差值']:,.2f}",
                         delta_color="inverse" if latest['差值'] < 0 else "normal")
+
+def main():
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+
+    if not st.session_state["authenticated"]:
+        login_page()
+        st.stop()  # ⚠️ 关键：阻止后续页面加载
+    else:
+        run_main()
