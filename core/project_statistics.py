@@ -1,7 +1,4 @@
 import pandas as pd
-import sys, os
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-
 
 def project_stats(df):
     """项目统计表"""

@@ -3,9 +3,7 @@ import streamlit as st
 from datetime import datetime
 import os
 
-# 文件存储路径
-# BASE_DIR = os.path.dirname(__file__)
-# PAID_DATA_FILE = os.path.join(BASE_DIR, "paid_financial_data.csv")
+
 PAID_DATA_FILE = r"D:\Pycharm_project\financial_system\data\paid_financial_data.csv"
 
 def init_data():

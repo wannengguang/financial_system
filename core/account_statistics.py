@@ -6,8 +6,6 @@ import sys
 import os
 
 # 设置路径和常量
-# BASE_DIR = os.path.dirname(__file__)
-# ACCOUNT_DATA_FILE = os.path.join(BASE_DIR, "account_data.csv")
 ACCOUNT_DATA_FILE = r"D:\Pycharm_project\financial_system\data\account_data.csv"
 ACCOUNT_NAMES = [
     "瑞东", "李磊", "玉坚", "上海恺玥", "北京迎皇",
