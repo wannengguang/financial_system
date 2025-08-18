@@ -5,11 +5,11 @@ import os
 from core.paid_receipts import init_data
 
 # 文件存储路径
-BASE_DIR = os.path.dirname(__file__)
-UNPAID_DATA_FILE = os.path.join(BASE_DIR, "unpaid_financial_data.csv")
+# BASE_DIR = os.path.dirname(__file__)
+# UNPAID_DATA_FILE = os.path.join(BASE_DIR, "unpaid_financial_data.csv")
+UNPAID_DATA_FILE = r"D:\Pycharm_project\financial_system\data\unpaid_financial_data.csv"
 
 
-# @st.cache_data(ttl=0)
 def load_unpaid_data():
     """加载或创建数据文件"""
     if os.path.exists(UNPAID_DATA_FILE):
