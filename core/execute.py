@@ -62,8 +62,8 @@ def show_paid():
             df_show = df_show[(df_show['日期'] >= start) & (df_show['日期'] <= end)]
     # 日期仅保留年月日（字符串）
     # df_show = df_show.dropna(subset=['日期'])
-    print(df_show['日期'].dtype)
-    print(df_show['日期'].head())
+    # print(df_show['日期'].dtype)
+    # print(df_show['日期'].head())
     # df_show['日期'] = pd.to_datetime(df_show['日期'], errors='coerce')
     if not df_show.empty and '日期' in df_show.columns:
         df_show['日期'] = df_show['日期'].dt.strftime('%Y-%m-%d')
@@ -453,7 +453,7 @@ def show_account(df):
 
 def run_main():
     # 鉴权
-    st.write(f"欢迎，{st.session_state['username']}（{st.session_state['role']}）")
+    st.write(f"欢迎，{st.session_state['username']}")
 
     # 加载数据
     df = load_paid_data()
