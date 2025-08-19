@@ -3,33 +3,6 @@ import streamlit as st
 from datetime import datetime
 from core.db import get_conn
 
-# ------------------------------------------------------------------------------
-# 0. 数据库连接
-# ------------------------------------------------------------------------------
-# PAID_DATA_FILE= os.path.join(
-#     r"D:\Pycharm_project\financial_system\data",
-#     "paid_financial_data.db"
-# )
-
-# @st.cache_resource
-# def _get_conn():
-#     conn = sqlite3.connect(PAID_DATA_FILE, check_same_thread=False)
-#     conn.execute("""
-#         CREATE TABLE IF NOT EXISTS paid_financial_data (
-#             date            TEXT,
-#             voucher_number  TEXT PRIMARY KEY,
-#             project_name    TEXT,
-#             amount_of_income   REAL,
-#             amount_of_expense  REAL,
-#             account_name    TEXT,
-#             client_name     TEXT,
-#             manager         TEXT,
-#             use_case        TEXT
-#         );
-#     """)
-#     conn.commit()
-#     return conn
-
 _conn = get_conn()
 
 # ------------------------------------------------------------------------------

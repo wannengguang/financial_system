@@ -4,31 +4,10 @@ import pandas as pd
 from core.db import get_conn
 
 
-# DB_DIR = r"D:\Pycharm_project\financial_system\data"
-# ACCOUNT_DATA_FILE = os.path.join(DB_DIR, "account_data.db")
-
 ACCOUNT_NAMES = [
     "瑞东", "李磊", "玉坚", "上海恺玥", "北京迎皇",
     "上海艺禹", "安徽麦金利", "安徽领空传媒", "临沂道辰"
 ]
-
-# ------------------ 数据库连接（单例） ------------------
-# @st.cache_resource
-# def _get_conn():
-#     conn = sqlite3.connect(ACCOUNT_DATA_FILE, check_same_thread=False)
-#     conn.execute(
-#         """
-#         CREATE TABLE IF NOT EXISTS account_data (
-#             account_name TEXT PRIMARY KEY,
-#             opening_balance REAL,
-#             amount_of_income REAL DEFAULT 0.0,
-#             amount_of_expense REAL DEFAULT 0.0,
-#             difference REAL
-#         );
-#         """
-#     )
-#     conn.commit()
-#     return conn
 
 _conn = get_conn()
 
