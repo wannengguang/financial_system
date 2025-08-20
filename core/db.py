@@ -1,11 +1,13 @@
 import os
 import sqlite3
 import streamlit as st
+from sqlalchemy import create_engine
 
 DB_FILE= os.path.join(
     r"D:\Pycharm_project\financial_system\data",
     "financial_system.db"
 )
+engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, future=True)
 
 
 # 2. 建表 SQL
