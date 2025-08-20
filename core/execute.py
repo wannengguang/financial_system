@@ -1,10 +1,10 @@
 
 import io
 from datetime import datetime
-
 import pandas as pd
 import streamlit as st
 from core.account_statistics import load_account_data,save_account_data,ACCOUNT_NAMES
+from core.db import engine
 from core.project_statistics import project_stats
 from core.monthly_statistics import monthly_stats
 from core.paid_receipts import load_paid_data,save_paid_data,add_paid_form,edit_paid_form
@@ -97,7 +97,7 @@ def show_paid():
         real_idx = df_display.index[idx] if idx is not None else None
 
     # ---------- 按钮 ----------
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         if st.button("➕ 新增"):
             st.session_state.mode = "add"
@@ -121,7 +121,7 @@ def show_paid():
                     'project_name': '项目名称',
                     'amount_of_income': '收入金额',
                     'amount_of_expense': '支出金额',
-                    'account_name': '使用账户',
+                    'account_name': '账户名称',
                     'client_name': '客户名称',
                     'manager': '经办人',
                     'use_case': '用途'
@@ -133,6 +133,61 @@ def show_paid():
                 file_name=f"收支记录_{datetime.now():%Y%m%d_%H%M%S}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+    with col5:
+        # ===== 📥 导入 Excel =====
+        if st.button("📥 导入Excel"):
+            st.session_state.show_import = True
+        if st.session_state.get("show_import"):
+            uploaded = st.file_uploader(
+                "请选择要导入的 Excel 文件",
+                type=["xlsx"],
+                key="paid_import"
+            )
+            if uploaded is not None:
+                try:
+                    df_up = pd.read_excel(uploaded)
+                    df_up.columns = df_up.columns.str.strip()  # 去掉空格
+                    rename_map = {
+                        "日期": "date", "凭证号": "voucher_number", "项目名称": "project_name",
+                        "收入金额": "amount_of_income", "支出金额": "amount_of_expense",
+                        "使用账户": "account_name", "客户名称": "client_name",
+                        "经办人": "manager", "用途": "use_case"
+                    }
+                    # 把字典 key 也转成小写，防止大小写不一致
+                    rename_map = {k.lower(): v for k, v in rename_map.items()}
+                    df_up = df_up.rename(columns=lambda c: rename_map.get(c.lower(), c))
+
+                    # 1. 先尝试英文列名
+                    need = {"date", "voucher_number", "project_name", "amount_of_income", "amount_of_expense",
+                            "account_name", "client_name", "manager", "use_case"}
+
+                    # 2. 如果不是英文，按中文映射
+                    if not need.issubset(df_up.columns):
+                        rename_map = {
+                            "日期": "date", "凭证号": "voucher_number", "项目名称": "project_name",
+                            "收入金额": "amount_of_income", "支出金额": "amount_of_expense",
+                            "使用账户": "account_name", "客户名称": "client_name",
+                            "经办人": "manager", "用途": "use_case"
+                        }
+                        df_up = df_up.rename(columns=rename_map)
+
+                    # 3. 再次校验
+                    missing = need - set(df_up.columns)
+                    if missing:
+                        st.error(f"列名不符，仍缺少：{missing}")
+                        st.stop()
+
+                    # 类型转换
+                    df_up["date"] = pd.to_datetime(df_up["date"], errors="coerce")
+                    num_cols = ["amount_of_income", "amount_of_expense"]
+                    df_up[num_cols] = df_up[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+
+                    # 写入 SQLite
+                    df_up.to_sql("paid_financial_data", engine, if_exists="append", index=False, method="multi")
+                    st.success(f"已导入 {len(df_up)} 条记录！")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"导入失败：{e}")
 
     # ---------- 弹窗 ----------
     if st.session_state.get("mode") == "add":
@@ -161,49 +216,61 @@ def show_paid():
 def show_unpaid():
     # ---------- 侧边栏筛选 -----------
     st.sidebar.header("🔍 查询")
-    df_all = load_unpaid_data()
-    accounts = df_all['使用账户'].unique().tolist() if not df_all.empty else []
-    projects = df_all['项目名称'].unique().tolist() if not df_all.empty else []
-    operator = df_all['经办人'].unique().tolist() if not df_all.empty else []
-    sel_account = st.sidebar.selectbox("按账户筛选", ["全部"] + accounts)
-    sel_project = st.sidebar.selectbox("按项目名称筛选", ["全部"] + projects)
-    sel_operator = st.sidebar.selectbox("按经办人筛选", ["全部"] + operator)
-    date_range = st.sidebar.date_input("按日期区间", value=[], key="daterange")
+    df_all = load_unpaid_data()          # 英文列名
+    accounts = df_all['account_name'].unique().tolist() if not df_all.empty else []
+    projects = df_all['project_name'].unique().tolist() if not df_all.empty else []
+    managers = df_all['manager'].unique().tolist()      if not df_all.empty else []
+
+    sel_account = st.sidebar.selectbox("按账户筛选",   ["全部"] + accounts)
+    sel_project = st.sidebar.selectbox("按项目筛选",   ["全部"] + projects)
+    sel_manager = st.sidebar.selectbox("按经办人筛选", ["全部"] + managers)
+    date_range  = st.sidebar.date_input("按日期区间", value=[], key="daterange")
+
     # ---------- 构造过滤后的表 -----------
-    df_show = df_all.copy()  # 先复制，避免空表布尔索引报错
+    df_show = df_all.copy()
     if not df_show.empty:
         if sel_account != "全部":
-            df_show = df_show[df_show['使用账户'] == sel_account]
+            df_show = df_show[df_show['account_name'] == sel_account]
         if sel_project != "全部":
-            df_show = df_show[df_show['项目名称'] == sel_project]
-        if sel_operator != "全部":
-            df_show = df_show[df_show['经办人'] == sel_operator]
+            df_show = df_show[df_show['project_name'] == sel_project]
+        if sel_manager != "全部":
+            df_show = df_show[df_show['manager'] == sel_manager]
         if len(date_range) == 2:
-            start, end = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-            df_show = df_show[(df_show['日期'] >= start) & (df_show['日期'] <= end)]
-    # 日期仅保留年月日（字符串）
-    # df_show = df_show.dropna(subset=['日期'])
-    print(df_show['日期'].dtype)
-    print(df_show['日期'].head())
-    # df_show['日期'] = pd.to_datetime(df_show['日期'], errors='coerce')
-    if not df_show.empty and '日期' in df_show.columns:
-        df_show['日期'] = df_show['日期'].dt.strftime('%Y-%m-%d')
-    # ---------- 展示表格 -----------
+            start = pd.Timestamp(date_range[0])
+            end   = pd.Timestamp(date_range[1])
+            df_show = df_show[(df_show['date'] >= start) & (df_show['date'] <= end)]
+
+    # 日期 → yyyy-mm-dd 字符串（展示用）
+    df_display = df_show.copy()
+    if not df_display.empty:
+        df_display['date'] = df_display['date'].dt.strftime('%Y-%m-%d')
+
+    # 列名转中文展示（可选）
+    zh_map = {
+        'date':'日期','voucher_number':'凭证号','project_name':'项目名称',
+        'amount_of_income':'收入金额','amount_of_expense':'支出金额',
+        'account_name':'使用账户','client_name':'客户名称',
+        'manager':'经办人','use_case':'用途'
+    }
+    df_display = df_display.rename(columns=zh_map)
+
+    # ---------- 展示 ----------
     real_idx = None
-    if df_show.empty:
+    if df_display.empty:
         st.info("暂无记录")
     else:
         selected = st.dataframe(
-            df_show,
+            df_display,
             hide_index=True,
             use_container_width=True,
             on_select="rerun",
             selection_mode="single-row",
         )
         idx = selected["selection"]["rows"][0] if selected["selection"]["rows"] else None
-        # real_idx = df_all.index[df_all.index.isin(df_show.index)][idx] if idx is not None else None
         real_idx = df_show.index[idx] if idx is not None else None
-    col1, col2, col3, col4 = st.columns(4)
+
+    # ---------- 按钮 ----------
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         if st.button("➕ 新增"):
             st.session_state.mode = "add"
@@ -218,23 +285,61 @@ def show_unpaid():
             st.rerun()
     with col4:
         if not df_show.empty and st.button("📤 导出Excel"):
-            # 创建内存中的Excel文件
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df_show.to_excel(writer, index=False, sheet_name='收支记录')
-            # 创建下载按钮
+                df_show.rename(columns=zh_map).to_excel(writer, index=False, sheet_name='收支记录')
             st.download_button(
                 label="下载Excel文件",
                 data=output.getvalue(),
-                file_name=f"收支记录_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                file_name=f"收支记录_{datetime.now():%Y%m%d_%H%M%S}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-    # st.write(f"Debug - real_idx: {real_idx}")
+    with col5:
+        if st.button("📥 导入Excel"):
+            st.session_state.show_import = True
+        if st.session_state.get("show_import"):
+            uploaded = st.file_uploader(
+                "请选择要导入的 Excel 文件",
+                type=["xlsx"],
+                key="unpaid_import"
+            )
+            if uploaded is not None:
+                try:
+                    df_up = pd.read_excel(uploaded)
+                    # 统一空格+大小写+中文→英文
+                    df_up.columns = df_up.columns.str.strip()
+                    rename_map = {
+                        "日期":"date","凭证号":"voucher_number","项目名称":"project_name",
+                        "收入金额":"amount_of_income","支出金额":"amount_of_expense",
+                        "账户名称":"account_name","客户名称":"client_name",
+                        "经办人":"manager","用途":"use_case"
+                    }
+                    rename_map = {k.lower(): v for k, v in rename_map.items()}
+                    df_up = df_up.rename(columns=lambda c: rename_map.get(c.lower(), c))
+
+                    need = set(rename_map.values())
+                    if not need.issubset(df_up.columns):
+                        st.error(f"列名不符，缺少：{need - set(df_up.columns)}")
+                        st.stop()
+
+                    df_up["date"] = pd.to_datetime(df_up["date"], errors="coerce")
+                    num_cols = ["amount_of_income","amount_of_expense"]
+                    df_up[num_cols] = df_up[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+
+                    df_up.to_sql("unpaid_financial_data", engine, if_exists="append", index=False, method="multi")
+                    st.success(f"已导入 {len(df_up)} 条记录！")
+                    st.session_state.show_import = False
+                    del st.session_state['unpaid_import']  # 强制 file_uploader 重置
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"导入失败：{e}")
+
+    # ---------- 弹窗 ----------
     if st.session_state.get("mode") == "add":
         st.subheader("➕ 新增记录")
         new_data = add_unpaid_form()
         if new_data:
-            new_data['凭证号'] = f"W-{len(df_all) + 1:04d}"
+            new_data['voucher_number'] = f"W-{len(df_all)+1:04d}"
             df_all = pd.concat([df_all, pd.DataFrame([new_data])], ignore_index=True)
             save_unpaid_data(df_all)
             st.success("已添加！")
@@ -252,6 +357,8 @@ def show_unpaid():
             st.success("已更新！")
             st.session_state.mode = None
             st.rerun()
+
+
 
 def account_mapping():
     ACCOUNT_COL_MAP = {
@@ -467,7 +574,7 @@ def run_main():
     elif st.session_state.current_page == "monthly_stats":
         st.set_page_config(page_title="月度统计", layout="wide")
         st.header("月度收支统计")
-        stats = monthly_stats(df)
+        stats = monthly_stats()
         st.dataframe(stats)
 
         # 显示最新月份数据
@@ -475,7 +582,7 @@ def run_main():
             latest = stats.iloc[-1]
             col1, col2, col3 = st.columns(3)
             col1.metric("月份", latest['月份'])
-            col2.metric("总收入", f"¥{latest['收入金额']:,.2f}")
+            col2.metric("总收入", f"¥{latest['收入']:,.2f}")
             col3.metric("净利润", f"¥{latest['差值']:,.2f}",
                         delta_color="inverse" if latest['差值'] < 0 else "normal")
 
