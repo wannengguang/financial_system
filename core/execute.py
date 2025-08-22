@@ -3,7 +3,7 @@ import io
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-from core.account_statistics import load_account_data,save_account_data,ACCOUNT_NAMES
+from core.account_statistics import load_account_data,save_account_data
 from core.db import engine
 from core.project_statistics import project_stats
 from core.monthly_statistics import monthly_stats
@@ -527,7 +527,7 @@ def run_main():
     st.write(f"欢迎，{st.session_state['username']}（{st.session_state['role']}）")
 
     # 加载数据
-    # df = load_paid_data()
+    df = load_paid_data()
     st.sidebar.title("财务管理系统")
     if st.sidebar.button("💰 已收支记录", use_container_width=True):
         st.session_state.current_page = "paid_record"
@@ -545,7 +545,7 @@ def run_main():
     if st.session_state.current_page == "paid_record":
         st.set_page_config(page_title="已收支记录", layout="wide")
         st.title("💰已收支记录")
-        show_paid()
+        show_paid(df)
 
     elif st.session_state.current_page == "unpaid_record":
         st.set_page_config(page_title="未收支记录", layout="wide")
