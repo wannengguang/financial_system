@@ -527,7 +527,7 @@ def run_main():
     st.write(f"欢迎，{st.session_state['username']}（{st.session_state['role']}）")
 
     # 加载数据
-    df = load_paid_data()
+    # df = load_paid_data()
     st.sidebar.title("财务管理系统")
     if st.sidebar.button("💰 已收支记录", use_container_width=True):
         st.session_state.current_page = "paid_record"

@@ -21,9 +21,10 @@ def init_data():
 def load_paid_data():
     try:
         df = pd.read_sql_query("SELECT * FROM paid_financial_data", _conn)
-        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = pd.to_datetime(df['date'], errors='coerce', format='mixed')
         return df
-    except Exception:
+    except Exception as e:
+        print("读取 paid_financial_data 报错：", e)  # 👈 关键
         return init_data()
 
 def save_paid_data(df: pd.DataFrame):
