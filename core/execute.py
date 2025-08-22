@@ -545,7 +545,7 @@ def run_main():
     if st.session_state.current_page == "paid_record":
         st.set_page_config(page_title="已收支记录", layout="wide")
         st.title("💰已收支记录")
-        show_paid(df)
+        show_paid()
 
     elif st.session_state.current_page == "unpaid_record":
         st.set_page_config(page_title="未收支记录", layout="wide")
