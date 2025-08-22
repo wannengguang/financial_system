@@ -574,17 +574,38 @@ def run_main():
     elif st.session_state.current_page == "monthly_stats":
         st.set_page_config(page_title="月度统计", layout="wide")
         st.header("月度收支统计")
-        stats = monthly_stats()
-        st.dataframe(stats)
 
-        # 显示最新月份数据
-        if not stats.empty:
+        # 1️⃣ 先拿到完整统计数据
+        stats = monthly_stats()
+
+        if stats.empty:
+            st.info("暂无数据")
+            st.stop()
+
+        # 2️⃣ 生成月份下拉框（按时间倒序，最新在前）
+        months = stats['月份'].sort_values(ascending=False).unique().tolist()
+        sel_month = st.selectbox("选择月份", ["全部"] + months)
+
+        # 3️⃣ 根据选择过滤
+        if sel_month != "全部":
+            stats_show = stats[stats['月份'] == sel_month]
+        else:
+            stats_show = stats
+
+        # 4️⃣ 展示过滤后的表格
+        st.dataframe(stats_show)
+
+        # 5️⃣ 指标卡片：如果选“全部”就显示最新，否则显示所选月
+        if sel_month == "全部":
             latest = stats.iloc[-1]
-            col1, col2, col3 = st.columns(3)
-            col1.metric("月份", latest['月份'])
-            col2.metric("总收入", f"¥{latest['收入']:,.2f}")
-            col3.metric("净利润", f"¥{latest['差值']:,.2f}",
-                        delta_color="inverse" if latest['差值'] < 0 else "normal")
+        else:
+            latest = stats_show.iloc[0]  # 只有一行
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("月份", latest['月份'])
+        col2.metric("总收入", f"¥{latest['收入']:,.2f}")
+        col3.metric("净利润", f"¥{latest['差值']:,.2f}",
+                    delta_color="inverse" if latest['差值'] < 0 else "normal")
 
 def main():
     if "authenticated" not in st.session_state:
